@@ -15,15 +15,15 @@ jobs:
         node-version: lts/*
 
     - name: Install dependencies
-      run: npm ci
+      run: npm install
 
     # FIXED CACHE KEY: Added runner.os AND the explicit version to prevent poisoning
-    - uses: actions/cache@v4
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-ubuntu24.04-playwright-${{ hashFiles('**/package-lock.json') }}
-        restore-keys: |
-          ${{ runner.os }}-ubuntu24.04-playwright-
+    # - uses: actions/cache@v4
+     # with:
+      #  path: ~/.cache/ms-playwright
+      #  key: ${{ runner.os }}-ubuntu24.04-playwright-${{ hashFiles('**/package-lock.json') }}
+      #  restore-keys: |
+       #   ${{ runner.os }}-ubuntu24.04-playwright-
 
     # WORKAROUND: Force Ubuntu 24.04 to natively satisfy the audio package mapping
     - name: Pre-install Noble Ubuntu Audio Dependencies
