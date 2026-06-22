@@ -7,8 +7,8 @@ export class FuelUtils {
 
     constructor(page : Page) {
         // Fallback checks for environments missing configurations
-        this.maxFuelPrice = parseInt(process.env.MAX_FUEL_PRICE || '1200');
-        this.maxCo2Price = parseInt(process.env.MAX_CO2_PRICE || '150');
+        this.maxFuelPrice = parseInt(process.env.MAX_FUEL_PRICE || '560');
+        this.maxCo2Price = parseInt(process.env.MAX_CO2_PRICE || '120');
         this.page = page;
 
         console.log(`[INIT] ⚙️ Threshold Configured -> Max Fuel: $${this.maxFuelPrice} | Max CO2: $${this.maxCo2Price}`);
