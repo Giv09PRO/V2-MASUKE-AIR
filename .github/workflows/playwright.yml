@@ -18,7 +18,7 @@ jobs:
       run: npm ci
 
    #  FIXED CACHE KEY: Added runner.os AND the explicit version to prevent poisoning
-     - uses: actions/cache@v4
+    - uses: actions/cache@v4
       with:
         path: ~/.cache/ms-playwright
         key: ${{ runner.os }}-ubuntu24.04-playwright-${{ hashFiles('**/package-lock.json') }}
