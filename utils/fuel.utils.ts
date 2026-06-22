@@ -1,40 +1,151 @@
 import { Page } from "@playwright/test";
 
-require('dotenv').config();
-
 export class FuelUtils {
     maxFuelPrice : number;
     maxCo2Price : number;
-
     page : Page;
 
     constructor(page : Page) {
-        this.maxFuelPrice = parseInt(process.env.MAX_FUEL_PRICE!);
-        this.maxCo2Price = parseInt(process.env.MAX_CO2_PRICE!);
+        // Fallback checks for environments missing configurations
+        this.maxFuelPrice = parseInt(process.env.MAX_FUEL_PRICE || '1200');
+        this.maxCo2Price = parseInt(process.env.MAX_CO2_PRICE || '150');
         this.page = page;
 
-        console.log("Max Fuel Price: " + this.maxFuelPrice);
-        console.log("Max Co2 Price: " + this.maxCo2Price);
+        console.log(`[INIT] ⚙️ Threshold Configured -> Max Fuel: $${this.maxFuelPrice} | Max CO2: $${this.maxCo2Price}`);
+    }
+
+    /**
+     * Highly stable utility to extract numeric data from the interface text elements.
+     * Prevents NaN parsing issues across mobile and desktop browser variants.
+     */
+    private async getCleanedNumber(locatorString: string, useTextSelector = false): Promise<number> {
+        try {
+            const locator = useTextSelector 
+                ? this.page.getByText(locatorString).locator('b > span').first()
+                : this.page.locator(locatorString);
+                
+            await locator.waitFor({ state: 'visible', timeout: 5000 });
+            const rawText = await locator.innerText();
+            
+            // Clean out text artifacts, commas, spaces and signs
+            const cleanText = rawText.replace(/[^\d]/g, ''); 
+            return cleanText ? parseInt(cleanText) : 0;
+        } catch (e) {
+            console.log(`[WARN] ⚠️ Could not resolve a valid number from: ${locatorString}. Defaulting to 0.`);
+            return 0;
+        }
     }
 
     public async buyFuel() {
-        console.log('Buying Fuel...')
+        console.log('\n⚡ [FUEL AUDIT] Scanning active fuel parameters...');
 
-        const getCurrentFuelPrice = async () => {
-            let fuelText = await this.page.getByText('Total price$').locator('b > span').innerText();
-            fuelText = fuelText.replaceAll(',', '');
+        const emptyFuel = await this.getCleanedNumber('#remCapacity');
+        if (emptyFuel === 0) {
+            console.log('--- [STATUS] 🟢 Tanks are completely full. Fuel purchase skipped. ---');
+            return;
+        }
+
+        const curFuelPrice = await this.getCleanedNumber('Total price$', true);
+        const curHolding = await this.getCleanedNumber('#holding');
+
+        console.log(`[DATA] 📊 Market Price: $${curFuelPrice}/L | Current Reserves: ${curHolding.toLocaleString()} L | Empty Capacity: ${emptyFuel.toLocaleString()} L`);
+
+        if (curFuelPrice === 0) {
+            console.log('[ERROR] ❌ Unable to extract fuel cost details. Aborting operation step.');
+            return;
+        }
+
+        let purchaseTarget = '';
+
+        // Checking standard budget thresholds
+        if (curFuelPrice < this.maxFuelPrice) {
+            console.log(`[ANALYSIS] 🔥 Market price ($${curFuelPrice}) is cheaper than configuration maximum ($${this.maxFuelPrice}).`);
+            purchaseTarget = emptyFuel.toString();
+        } 
+        // Checking critical depletion fail-safes
+        else if (curHolding < 2000000 && curFuelPrice < 1250) {
+            console.log(`[ANALYSIS] 🚨 Reserves are running critically low (${curHolding.toLocaleString()} L). Triggering panic purchase.`);
+            purchaseTarget = '2000000';
+        }
+
+        if (purchaseTarget !== '') {
+            console.log(`[ACTION] 💸 Executing purchase order for ${parseInt(purchaseTarget).toLocaleString()} Litres...`);
             
-            return parseInt(fuelText);
+            await this.page.getByPlaceholder('Amount to purchase').click();
+            await this.page.getByPlaceholder('Amount to purchase').press('Control+a');
+            await this.page.getByPlaceholder('Amount to purchase').fill(purchaseTarget);
+            await this.page.getByRole('button', { name: /Purchase/i }).click();
+
+            // Transaction execution timeout delay
+            await this.page.waitForTimeout(2000);
+            
+            // Post transaction evaluation
+            const postEmptyFuel = await this.getCleanedNumber('#remCapacity');
+            if (postEmptyFuel < emptyFuel) {
+                console.log(`[VERIFIED] ✅ SUCCESS: In-game fuel purchase confirmed. ${parseInt(purchaseTarget).toLocaleString()} L added.`);
+            } else {
+                console.log(`[VERIFIED] ❌ FAILED: Transaction failed to execute on server. Structural values unchanged.`);
+            }
+        } else {
+            console.log('--- [STATUS] 🟢 Fuel market costs are currently non-optimal. Order held. ---');
+        }
+    }
+
+    public async buyCo2() {
+        console.log('\n🍃 [CO2 AUDIT] Scanning active environmental parameters...');
+
+        const emptyCo2 = await this.getCleanedNumber('#remCapacity');
+        if (emptyCo2 === 0) {
+            console.log('--- [STATUS] 🟢 CO2 Bank is full. Carbon quota purchase skipped. ---');
+            return;
         }
 
-        const getCurrentHolding = async () => {
-            let holdingText = await this.page.locator('#holding').innerText();
-            holdingText = holdingText.replaceAll(',', '');
+        const curCo2Price = await this.getCleanedNumber('Total price$', true);
+        const curHolding = await this.getCleanedNumber('#holding');
 
-            return parseInt(holdingText);
+        console.log(`[DATA] 📊 Quota Price: $${curCo2Price}/T | Current Reserves: ${curHolding.toLocaleString()} | Empty Capacity: ${emptyCo2.toLocaleString()}`);
+
+        if (curCo2Price === 0) {
+            console.log('[ERROR] ❌ Unable to extract carbon allocation cost. Aborting operation step.');
+            return;
         }
 
-        const getEmptyFuel = async () => {
+        let purchaseTarget = '';
+
+        // Standard budget checks
+        if (curCo2Price < this.maxCo2Price) {
+            console.log(`[ANALYSIS] 🔥 Quota price ($${curCo2Price}) is within safe target boundaries ($${this.maxCo2Price}).`);
+            purchaseTarget = emptyCo2.toString();
+        } 
+        // Critical depletion checks
+        else if (curHolding < 1000000 && curCo2Price < 180) {
+            console.log(`[ANALYSIS] 🚨 Carbon quotas are depleted (${curHolding.toLocaleString()}). Triggering safety buy.`);
+            purchaseTarget = '1000000';
+        }
+
+        if (purchaseTarget !== '') {
+            console.log(`[ACTION] 💸 Executing purchase order for ${parseInt(purchaseTarget).toLocaleString()} carbon allocations...`);
+            
+            await this.page.getByPlaceholder('Amount to purchase').click();
+            await this.page.getByPlaceholder('Amount to purchase').press('Control+a');
+            await this.page.getByPlaceholder('Amount to purchase').fill(purchaseTarget);
+            await this.page.getByRole('button', { name: /Purchase/i }).click();
+
+            // Transaction execution timeout delay
+            await this.page.waitForTimeout(2000);
+            
+            // Post transaction evaluation
+            const postEmptyCo2 = await this.getCleanedNumber('#remCapacity');
+            if (postEmptyCo2 < emptyCo2) {
+                console.log(`[VERIFIED] ✅ SUCCESS: In-game CO2 quota validation complete. ${parseInt(purchaseTarget).toLocaleString()} units added.`);
+            } else {
+                console.log(`[VERIFIED] ❌ FAILED: Transaction rejected by structural parameters. Capacity unmodified.`);
+            }
+        } else {
+            console.log('--- [STATUS] 🟢 Quota market rates are currently non-optimal. Order held. ---');
+        }
+    }
+}        const getEmptyFuel = async () => {
             const emptyText = (await this.page.locator('#remCapacity').innerText()).replaceAll(',', '')
 
             return parseInt(emptyText);
