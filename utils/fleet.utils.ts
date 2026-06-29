@@ -58,5 +58,3 @@ export class FleetUtils {
         console.log(`--- FLEET DEPARTURES FINISHED (Total Batches Sent: ${totalBatches}) ---`);
     }
 }
-    }
-}
