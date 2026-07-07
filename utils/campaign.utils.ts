@@ -53,6 +53,46 @@ export class CampaignUtils {
             await this.page.getByRole('cell', { name: campaign.selectRegex }).click();
             await GeneralUtils.sleep(500);
 
+            // [FIX APPLIED HERE] 
+            // Click the buy button ($ symbol)
+            // Using a filter relaxes the matching rules to bypass hidden whitespace or nested HTML tags.
+            await this.page.locator('button').filter({ hasText: '$' }).first().click();
+            
+            // Critical: Wait for the purchase modal/animation to process and go away
+            await GeneralUtils.sleep(2000);
+
+            // 4. VERIFICATION: Read the active dashboard again to confirm the transaction cleared
+            const verifyPurchase = await this.page.getByRole('cell', { name: campaign.searchRegex }).isVisible();
+
+            if (verifyPurchase) {
+                console.log(`[VERIFIED] ✅ SUCCESS: ${campaign.name} Campaign was successfully bought and is now live!`);
+            } else {
+                console.log(`[VERIFIED] ❌ FAILED: Clicked buy for ${campaign.name}, but it is NOT showing active in-game. (Check funds or server lag)`);
+            }
+        }
+
+        console.log('--- CAMPAIGN CHECKS COMPLETED ---');
+    }
+}
+        // 3. Loop through each campaign type dynamically
+        for (const campaign of campaigns) {
+            const isAlreadyActive = await this.page.getByRole('cell', { name: campaign.searchRegex }).isVisible();
+
+            if (isAlreadyActive) {
+                console.log(`[STATUS] 🟢 ${campaign.name} Campaign is already active. Skipping purchase.`);
+                continue; // Move to the next campaign type safely
+            }
+
+            console.log(`[STATUS] 🔴 ${campaign.name} Campaign NOT found active. Attempting to purchase...`);
+
+            // Trigger Campaign Creation flow
+            await this.page.getByRole('button', { name: /New campaign/i }).click();
+            await GeneralUtils.sleep(800);
+
+            // Select the specific campaign type from the menu
+            await this.page.getByRole('cell', { name: campaign.selectRegex }).click();
+            await GeneralUtils.sleep(500);
+
             // Click the buy button ($ symbol)
             await this.page.getByRole('button', { name: '$', exact: true }).click();
             
