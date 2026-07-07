@@ -74,6 +74,18 @@ export class CampaignUtils {
         console.log('--- CAMPAIGN CHECKS COMPLETED ---');
     }
 }
+            const verifyPurchase = await this.page.getByRole('cell', { name: campaign.searchRegex }).isVisible();
+
+            if (verifyPurchase) {
+                console.log(`[VERIFIED] ✅ SUCCESS: ${campaign.name} Campaign was successfully bought and is now live!`);
+            } else {
+                console.log(`[VERIFIED] ❌ FAILED: Clicked buy for ${campaign.name}, but it is NOT showing active in-game. (Check funds or server lag)`);
+            }
+        }
+
+        console.log('--- CAMPAIGN CHECKS COMPLETED ---');
+    }
+}
         // 3. Loop through each campaign type dynamically
         for (const campaign of campaigns) {
             const isAlreadyActive = await this.page.getByRole('cell', { name: campaign.searchRegex }).isVisible();
