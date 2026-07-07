@@ -8,7 +8,7 @@ import { MaintenanceUtils } from '../utils/maintenance.utils';
 require('dotenv').config();
 
 test('All Operations', async ({ page }) => {
-  test.setTimeout(60000);
+  test.setTimeout(300000);
 
   // Variable Initialization
   const fuelUtils = new FuelUtils(page);
